@@ -5,7 +5,7 @@ set -e
 
 # Start ComfyUI in the background
 echo "Starting ComfyUI in the background..."
-python /ComfyUI/main.py --listen --use-sage-attention &
+python /ComfyUI/main.py --listen --use-sage-attention --extra-model-paths-config /extra_model_paths.yaml &
 
 # Wait for ComfyUI to be ready
 echo "Waiting for ComfyUI to be ready..."
