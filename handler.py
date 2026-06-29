@@ -570,13 +570,14 @@ def handler(job):
     output_video_path = None
     logger.info("출력 비디오 검색 중...")
 
-    for node_id in videos:
-        if videos[node_id]:
-            output_video_path = videos[node_id][0]
-            logger.info(f"노드 {node_id}에서 출력 비디오 발견: {output_video_path}")
-            break
-        else:
-            logger.info(f"노드 {node_id}는 비어있음")
+    # FIX (#17): nao pega o primeiro node (era um preview de ~3s). Escolhe o video
+    # COMPLETO: prefere o que tem audio no nome (muxado), senao o MAIOR arquivo.
+    all_videos = [p for nid in videos for p in videos[nid] if os.path.exists(p)]
+    if all_videos:
+        audio_videos = [p for p in all_videos if "audio" in os.path.basename(p).lower()]
+        candidates = audio_videos if audio_videos else all_videos
+        output_video_path = max(candidates, key=os.path.getsize)
+        logger.info(f"output video (full) selected: {output_video_path} ({os.path.getsize(output_video_path)} bytes)")
 
     if not output_video_path:
         logger.error("출력 비디오를 찾을 수 없습니다. 모든 노드가 비어있습니다.")
