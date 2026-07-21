@@ -521,6 +521,48 @@ def handler(job):
 
     prompt["270"]["inputs"]["value"] = max_frame
 
+    # ------------------------------------------------------------------
+    # Máscara opcional — ref_target_masks (indica ONDE animar)
+    # ------------------------------------------------------------------
+    # Se vier mask_url/mask_path/mask_base64, injeta um subgrafo
+    #   LoadImage -> ImageResizeKJv2 (espelha o resize da imagem, nó 281)
+    #   -> ImageToMask, ligado ao ref_target_masks do MultiTalkWav2VecEmbeds (194).
+    # A máscara (região branca) diz onde o áudio deve animar. Sem máscara,
+    # o workflow roda exatamente como antes (frame inteiro).
+    mask_path = None
+    if "mask_url" in job_input:
+        mask_path = process_input(job_input["mask_url"], task_id, "input_mask.png", "url")
+    elif "mask_path" in job_input:
+        mask_path = process_input(job_input["mask_path"], task_id, "input_mask.png", "path")
+    elif "mask_base64" in job_input:
+        mask_path = process_input(job_input["mask_base64"], task_id, "input_mask.png", "base64")
+
+    if mask_path and os.path.exists(mask_path):
+        prompt["500"] = {
+            "class_type": "LoadImage",
+            "inputs": {"image": mask_path},
+            "_meta": {"title": "Mask (ref_target_masks)"},
+        }
+        prompt["501"] = {
+            "class_type": "ImageResizeKJv2",
+            "inputs": {
+                "width": ["245", 0], "height": ["246", 0],
+                "upscale_method": "lanczos", "keep_proportion": "crop",
+                "pad_color": "0, 0, 0", "crop_position": "top",
+                "divisible_by": 16, "device": "cpu", "image": ["500", 0],
+            },
+            "_meta": {"title": "Resize Mask (mirror 281)"},
+        }
+        prompt["502"] = {
+            "class_type": "ImageToMask",
+            "inputs": {"image": ["501", 0], "channel": "red"},
+            "_meta": {"title": "Image -> Mask"},
+        }
+        prompt["194"]["inputs"]["ref_target_masks"] = ["502", 0]
+        logger.info(f"🎭 Máscara aplicada (ref_target_masks): {mask_path}")
+    else:
+        logger.info("Sem máscara — animação no frame inteiro (padrão)")
+
     ws_url = f"ws://{server_address}:8188/ws?clientId={client_id}"
     logger.info(f"Connecting to WebSocket: {ws_url}")
 
