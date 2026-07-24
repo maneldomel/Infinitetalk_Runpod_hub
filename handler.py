@@ -553,13 +553,27 @@ def handler(job):
             },
             "_meta": {"title": "Resize Mask (mirror 281)"},
         }
+        # fundo = inverso da máscara (região que NÃO deve animar). Empilha
+        # [pessoa, fundo] -> ref_target_masks [2,H,W]: a classe 0 (pessoa) recebe
+        # o áudio; a classe 1 (fundo) fica sem áudio -> não anima. Sem o fundo, a
+        # região não-mascarada (a outra pessoa) também animava.
+        prompt["503"] = {
+            "class_type": "ImageInvert",
+            "inputs": {"image": ["501", 0]},
+            "_meta": {"title": "Background (invert)"},
+        }
+        prompt["504"] = {
+            "class_type": "ImageBatch",
+            "inputs": {"image1": ["501", 0], "image2": ["503", 0]},
+            "_meta": {"title": "Batch [pessoa, fundo]"},
+        }
         prompt["502"] = {
             "class_type": "ImageToMask",
-            "inputs": {"image": ["501", 0], "channel": "red"},
-            "_meta": {"title": "Image -> Mask"},
+            "inputs": {"image": ["504", 0], "channel": "red"},
+            "_meta": {"title": "Images -> Masks [2,H,W]"},
         }
         prompt["194"]["inputs"]["ref_target_masks"] = ["502", 0]
-        logger.info(f"🎭 Máscara aplicada (ref_target_masks): {mask_path}")
+        logger.info(f"🎭 Máscara + fundo aplicados (ref_target_masks, 2 classes): {mask_path}")
     else:
         logger.info("Sem máscara — animação no frame inteiro (padrão)")
 
